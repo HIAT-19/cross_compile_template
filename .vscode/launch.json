@@ -1,0 +1,75 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "1. Debug (Docker/QEMU)",
+            "type": "cppdbg",
+            "request": "launch",
+            "MIMode": "gdb",
+            "cwd": "${workspaceFolder}",
+            "miDebuggerPath": "${env:HOST_GDB_PATH}",
+            "miDebuggerServerAddress": "localhost:${env:QEMU_DEBUG_PORT}",
+            "program": "${workspaceFolder}/${env:HOST_BUILD_DIR_NAME}/Debug/${env:HOST_BIN_SUBDIR}/${input:targetName}",
+            "sourceFileMap": {
+                "${env:CONTAINER_PROJECT_DIR}": "${workspaceFolder}"
+            },
+            "preLaunchTask": "start-debug-docker",
+            "postDebugTask": "stop-debug-docker",
+            "args": [],
+            "stopAtEntry": true,
+            "setupCommands": [
+                {
+                    "text": "set architecture aarch64",
+                    "ignoreFailures": false
+                },
+                {
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "set auto-load safe-path /",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "2. Debug (Device)",
+            "type": "cppdbg",
+            "request": "launch",
+            "MIMode": "gdb",
+            "cwd": "${workspaceFolder}",
+            "miDebuggerPath": "${env:HOST_GDB_PATH}",
+            "miDebuggerServerAddress": "${env:DEVICE_IP}:${env:DEVICE_DEBUG_PORT}", 
+            "program": "${workspaceFolder}/${env:HOST_BUILD_DIR_NAME}/Debug/${env:HOST_BIN_SUBDIR}/${input:targetName}",
+            "sourceFileMap": {
+                "${env:CONTAINER_PROJECT_DIR}": "${workspaceFolder}"
+            },
+            "preLaunchTask": "start-debug-device",
+            "postDebugTask": "stop-debug-device",
+            "args": [],
+            "stopAtEntry": true,
+            "setupCommands": [
+                {
+                    "text": "set architecture aarch64",
+                    "ignoreFailures": false
+                },
+                {
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "set auto-load safe-path /",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "targetName",
+            "type": "promptString",
+            "description": "Target Executable Name",
+            "default": "logger_test"
+        }
+    ]
+}

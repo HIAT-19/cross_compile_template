@@ -1,0 +1,129 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "start-qemu-docker",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh debug-start --dest docker --target ${input:targetName} && ${workspaceFolder}/build.sh debug-logs --dest docker",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "close": false,
+                "clear": true
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^(LOG_READY)$",
+                    "file": 1,
+                    "location": 1,
+                    "message": 1
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^LOG_READY$",
+                    "endsPattern": "^LOG_READY$"
+                }
+            }
+        },
+        {
+            "label": "start-debug-docker",
+            "type": "shell",
+            "dependsOn": ["start-qemu-docker"],
+            "dependsOrder": "sequence",
+            "command": "echo Ready for debugger",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "dedicated",
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "stop-debug-docker",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh debug-stop --dest docker",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true
+            }
+        },
+        {
+            "label": "start-device-gdbserver",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh debug-start --dest device --target ${input:targetName}",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "close": false
+            },
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "tail-device-logs",
+            "type": "shell",
+            "dependsOn": ["start-device-gdbserver"],
+            "dependsOrder": "sequence",
+            "command": "${workspaceFolder}/build.sh debug-logs --dest device",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "close": true,
+                "clear": true
+            },
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^(LOG_READY)$",
+                    "file": 1,
+                    "location": 1,
+                    "message": 1
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^LOG_READY$",
+                    "endsPattern": "^LOG_READY$"
+                }
+            }
+        },
+        {
+            "label": "start-debug-device",
+            "type": "shell",
+            "dependsOn": ["tail-device-logs"],
+            "dependsOrder": "sequence",
+            "command": "echo 'Debugger attaching...'",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "dedicated",
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "stop-debug-device",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh debug-stop --dest device",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "targetName",
+            "type": "promptString",
+            "description": "Target Executable Name",
+            "default": "logger_test"
+        }
+    ]
+}
