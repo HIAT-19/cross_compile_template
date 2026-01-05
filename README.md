@@ -6,6 +6,27 @@
 - **开发环境**：宿主机/WSL2 上编辑代码、跑 clangd、查看产物
 - **调试环境**：支持 **Docker/QEMU**（快速验证）与 **真机设备**（真实环境）两种模式
 
+### Prerequisites
+
+- **Host/WSL2**：Linux 或 WSL2（推荐 WSL2 + Docker Desktop 的 WSL backend）
+  - 参考：[Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
+- **Docker**：能正常 `docker info`
+  - 参考：[Docker Desktop WSL 2 backend](https://docs.docker.com/desktop/features/wsl/)
+  - 参考：[Install Docker Engine](https://docs.docker.com/engine/install/)
+- **VSCode（可选）**：安装 C/C++ 插件（调试），clangd（代码静态分析）
+  - 参考：[VS Code](https://code.visualstudio.com/)
+  - 参考：[C/C++ extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools)
+  - 参考：[clangd](https://clangd.llvm.org/)
+- **gdb-multiarch（可选）**：宿主机调试 aarch64 时建议安装
+
+```bash
+sudo apt update && sudo apt install -y gdb-multiarch
+```
+
+- **说明**：Docker/QEMU 调试依赖容器内的 `qemu-user`；构建依赖容器内的 `cmake`/`make`（本仓库 `scripts/Dockerfile` 已包含）。
+  - 参考：[QEMU](https://www.qemu.org/)
+  - 参考：[CMake](https://cmake.org/)
+
 ### Quick Start（推荐按顺序执行）
 
 1) 构建镜像（或使用团队提供的现成镜像）：
@@ -40,16 +61,6 @@ source ~/.bashrc
 ./build.sh debug-start --dest device --target <binary_name>   # 真机启动 gdbserver
 ./build.sh debug-logs  --dest docker|device                    # 跟随日志
 ./build.sh debug-stop  --dest docker|device                    # 停止调试环境
-```
-
-### Prerequisites
-
-- **Host/WSL2**：Linux 或 WSL2（推荐 WSL2 + Docker Desktop 的 WSL backend）
-- **Docker**：能正常 `docker info`
-- **VSCode（可选）**：安装 C/C++ 插件（调试），clangd（代码静态分析）
-- **gdb-multiarch（可选）**：宿主机调试 aarch64 时建议安装
-```bash
-sudo apt update && sudo apt install -y gdb-multiarch
 ```
 
 ## STEP 1 使用 Dockerfile 构建交叉编译镜像
