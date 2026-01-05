@@ -1,0 +1,1 @@
+add_executable(cross_test main.cpp)
