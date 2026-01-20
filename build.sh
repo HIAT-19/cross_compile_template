@@ -38,7 +38,12 @@ log_header() {
 
 HOST_PROJECT_DIR=$(cd "$(dirname "$0")" && pwd) # 本机项目根目录
 HOST_BIN_SUBDIR=${HOST_BIN_SUBDIR:-bin}
-CONTAINER_PROJECT_DIR=${CONTAINER_PROJECT_DIR:-$HOST_PROJECT_DIR} # 需要与本机一致，确保 compile_commands.json 可跳转
+
+# IMPORTANT:
+# Do NOT inherit CONTAINER_PROJECT_DIR from the caller's shell.
+# This project requires container-side path == host-side path so that
+# compile_commands.json contains usable absolute paths for clangd/IDE.
+unset CONTAINER_PROJECT_DIR
 
 set -a
 if [ -f "${HOST_PROJECT_DIR}/.env" ]; then
@@ -48,6 +53,9 @@ else
     exit 1
 fi
 set +a
+
+# Default container project dir (can be overridden ONLY via .env)
+CONTAINER_PROJECT_DIR=${CONTAINER_PROJECT_DIR:-$HOST_PROJECT_DIR} # 需要与本机一致，确保 compile_commands.json 可跳转
 
 # Defaults (can be overridden by environment or .env)
 QEMU_CONTAINER_NAME=${QEMU_CONTAINER_NAME:-qemu-container}
@@ -274,7 +282,7 @@ sync_headers() {
     cid="$(docker create "${CONTAINER_IMAGE_NAME}" sh -lc "true" 2>/dev/null)" || true
     if [ -z "${cid}" ]; then
         log_error "创建临时容器失败: ${CONTAINER_IMAGE_NAME}"
-        return 1
+        return 2
     fi
 
     # 4) Execute sync (flat layout)
@@ -563,6 +571,22 @@ do_build() {
     local container_build_dir="${CONTAINER_PROJECT_DIR}/${HOST_BUILD_DIR_NAME}"
     log_header "开始 ${build_type} 编译"
 
+    # Safety: if the build directory was generated from another source tree,
+    # CMake will keep emitting wrong absolute paths in compile_commands.json.
+    local host_build_dir="${HOST_PROJECT_DIR}/${HOST_BUILD_DIR_NAME}"
+    local cache_file="${host_build_dir}/CMakeCache.txt"
+    if [ -f "${cache_file}" ]; then
+        local cached_home_dir=""
+        cached_home_dir="$(awk -F= '/^CMAKE_HOME_DIRECTORY:INTERNAL=/{print $2; exit}' "${cache_file}" 2>/dev/null || true)"
+        if [ -n "${cached_home_dir}" ] && [ "${cached_home_dir}" != "${HOST_PROJECT_DIR}" ]; then
+            log_error "检测到旧的 CMake 缓存目录：${cached_home_dir}"
+            log_error "当前仓库目录为：${HOST_PROJECT_DIR}"
+            echo "请先执行: ./build.sh clean  (清理 ${host_build_dir})" >&2
+            echo "然后重试: ./build.sh ${build_type,,}" >&2
+            exit 1
+        fi
+    fi
+
     # Detect host-side include paths for clangd (passed to CMake to inject into compile_commands.json)
     # Fail-fast: must have c++ and sysroot staged
     if [ ! -d "${TOOLCHAIN_HEADERS_ABS}/c++" ] || [ ! -d "${TOOLCHAIN_HEADERS_ABS}/sysroot" ]; then
@@ -584,7 +608,6 @@ do_build() {
     local cmd="mkdir -p ${container_build_dir} \"${container_ccache_dir}/tmp\" && cd ${container_build_dir} && \
           cmake .. -DCMAKE_TOOLCHAIN_FILE=${CONTAINER_PROJECT_DIR}/${HOST_TOOLCHAIN_FILE} \
                    -DCMAKE_BUILD_TYPE=${build_type} \
-                   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
                    ${cmake_extra_args} && \
           make -j\$(nproc)"
     
@@ -691,7 +714,9 @@ do_debug_start() {
         local remote_log="${DEVICE_LOG_PATH}"
 
         # 构造远程命令
+        # 注意：先清空日志文件，确保日志内容是本次运行的
         local remote_cmd="chmod +x ${DEVICE_BIN_DIR}/${target} && \
+            : > ${remote_log} && \
             nohup gdbserver --once :${port} ${DEVICE_BIN_DIR}/${target} > ${remote_log} 2>&1 < /dev/null &"
 
         timeout 1s ssh -p "$DEVICE_SSH_PORT" "$DEVICE_SSH_USER@$DEVICE_IP" "${remote_cmd}"
@@ -759,4 +784,3 @@ case "$COMMAND" in
     help|--help|-h) show_help ;;
     *) log_error "未知命令: $COMMAND"; show_help; exit 1 ;;
 esac
-
